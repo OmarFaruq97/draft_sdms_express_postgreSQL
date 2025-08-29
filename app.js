@@ -11,7 +11,7 @@ app.use(cors());
 app.use(express.json());
 app.use(morgan("dev"));
 
-// Routes
+// root Routes
 app.use("/api", routes);
 
 // Error Handler

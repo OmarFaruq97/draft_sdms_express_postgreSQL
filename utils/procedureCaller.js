@@ -19,7 +19,7 @@ export async function callProcedure(procName, params) {
     throw err;
   }
 }
-//right code*/
+//right code for surgiacl test for pre-surgical*/
 
 import pool from "../config/db.js";
 
