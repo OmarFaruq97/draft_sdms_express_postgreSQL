@@ -23,6 +23,6 @@ function getDriveClient() {
   return google.drive({ version: "v3", auth: oAuth2Client });
 }
 
-// 👉 এখানে default export হচ্ছে ready client
+
 const drive = getDriveClient();
 export default drive;

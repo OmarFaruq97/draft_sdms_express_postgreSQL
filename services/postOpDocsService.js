@@ -1,77 +1,93 @@
-import fs from "fs";
+// services/postOpDocsService.js
+import pool from "../config/db.js";
 import drive from "./googleDriveService.js";
+import fs from "fs";
+import dotenv from "dotenv";
 
-import { callProcedure } from "../utils/procedureCaller.js";
+const DRIVE_FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID;
 
-const FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID; // .env থেকে ফোল্ডার আইডি নেবে
-
-// =============================
-// 📤 Upload Document to Drive
-// =============================
-export async function uploadDocument(file, params) {
+async function callProcedure(procName, params) {
+  const client = await pool.connect();
   try {
-    const fileMetaData = {
-      name: file.originalname,
-      parents: [FOLDER_ID], // Google Drive folder ID
-    };
-
-    const media = {
-      mimeType: file.mimetype,
-      body: fs.createReadStream(file.path),
-    };
-
-    // 🟢 Upload file to Google Drive
-    const response = await drive.files.create({
-      requestBody: fileMetaData,
-      media: media,
-      fields: "id, name",
-    });
-
-    // 🟢 DB তে ফাইলের তথ্য save করবে
-    params.file_id = response.data.id;
-    params.file_name = response.data.name;
-    await callProcedure("sdms_db.prc_post_op_docs_crud", params);
-
-    // 🟢 লোকাল টেম্প ফাইল ডিলিট
-    fs.unlinkSync(file.path);
+    const refCursor = "ref";
+    await client.query("BEGIN");
+    await client.query(`CALL ${procName}($1::json, $2)`, [
+      JSON.stringify(params),
+      refCursor,
+    ]);
+    const result = await client.query(`FETCH ALL IN ${refCursor}`);
+    await client.query("COMMIT");
 
     return {
       success: true,
-      message: "File uploaded successfully",
-      fileId: response.data.id,
+      message: "successfully",
+      data: result.rows, // ✅ DB থেকে আসল ডাটা ফেরত আসবে
     };
   } catch (error) {
-    console.error("❌ Upload Error:", error);
-    return { success: false, message: error.message };
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
   }
 }
 
-// =============================
-// 📥 Download Document from Drive
-// =============================
+// 🔹 Upload Document + Insert DB
+export async function uploadDocument(file, body) {
+  // Step 1: Upload to Google Drive
+  // Step 1: Upload to Google Drive
+  //change
+  const fileMetadata = {
+    name: file.originalname,
+    parents: [DRIVE_FOLDER_ID], // ✅ .env
+  };
+  const media = {
+    mimeType: file.mimetype,
+    body: fs.createReadStream(file.path),
+  };
+
+  const response = await drive.files.create({
+    resource: fileMetadata,
+    media,
+    fields: "id",
+  });
+
+  const driveFileId = response.data.id;
+  console.log("✅ File uploaded to Google Drive:", driveFileId);
+  //change
+
+  // Step 2: Insert into DB using procedure
+  const params = {
+    action_mode: "insert",
+    patient_id: body.patient_id,
+    hospital_id: body.hospital_id,
+    admission_id: body.admission_id,
+    doctor_id: body.doctor_id,
+    file_name: file.originalname,
+    file_type: file.mimetype,
+    document_type: body.document_type,
+    drive_file_id: driveFileId,
+    remarks: body.remarks,
+    insert_by: body.insert_by || "system",
+  };
+
+  return await callProcedure("sdms_db.prc_post_op_docs_crud", params);
+}
+
+// 🔹 Download Document
 export async function downloadDocument(fileId) {
-  try {
-    const response = await drive.files.get(
-      { fileId, alt: "media" },
-      { responseType: "stream" }
-    );
-    return response.data; // stream আকারে return করবে
-  } catch (error) {
-    console.error("❌ Download Error:", error);
-    throw new Error("Failed to download file");
-  }
+  const response = await drive.files.get(
+    { fileId, alt: "media" },
+    { responseType: "stream" }
+  );
+  return response.data;
 }
 
-// =============================
-// 📋 Get Docs List from DB
-// =============================
+// 🔹 Get Docs List
 export async function getDocs(params) {
   return await callProcedure("sdms_db.prc_post_op_docs_crud", params);
 }
 
-// =============================
-// 🔎 Get single doc by ID from DB
-// =============================
+// 🔹 Get Doc By ID
 export async function getDocById(params) {
   return await callProcedure("sdms_db.prc_post_op_docs_crud", params);
 }

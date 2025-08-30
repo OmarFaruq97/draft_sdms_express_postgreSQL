@@ -6,6 +6,7 @@ import {
   downloadDoc,
   getDocsList,
   getDocByIdController,
+  deleteDocController,
 } from "../controllers/postOpDocsController.js";
 
 const router = express.Router();
@@ -22,5 +23,8 @@ router.get("/", getDocsList);
 
 // Get by id
 router.post("/getById", getDocByIdController);
+
+// Delete
+router.post("/", deleteDocController);
 
 export default router;
