@@ -1,41 +1,26 @@
-import { google } from "googleapis";
+// googleDrive.js
 import fs from "fs";
+import { google } from "googleapis";
 
-const KEYFILEPATH = "credentials.json"; // আপনার google service account credentials
-const SCOPES = ["https://www.googleapis.com/auth/drive.file"];
+const CREDENTIALS_PATH = "oauth_client.json";
+const TOKEN_PATH = "tokens.json";
 
-const auth = new google.auth.GoogleAuth({
-  keyFile: KEYFILEPATH,
-  scopes: SCOPES,
-});
+// Load OAuth client
+function getDriveClient() {
+  const credentials = JSON.parse(fs.readFileSync(CREDENTIALS_PATH, "utf-8"));
+  const tokens = JSON.parse(fs.readFileSync(TOKEN_PATH, "utf-8"));
 
-const drive = google.drive({ version: "v3", auth });
+  const { client_id, client_secret, redirect_uris } = credentials.installed;
 
-// Upload
-export async function uploadFileToDrive(filePath, fileName, mimeType) {
-  const fileMetadata = { name: fileName };
-  const media = { mimeType, body: fs.createReadStream(filePath) };
-
-  const res = await drive.files.create({
-    resource: fileMetadata,
-    media,
-    fields: "id",
-  });
-
-  return res.data.id;
-}
-
-// Download
-export async function downloadFileFromDrive(fileId, destPath) {
-  const dest = fs.createWriteStream(destPath);
-  const res = await drive.files.get(
-    { fileId, alt: "media" },
-    { responseType: "stream" }
+  const oAuth2Client = new google.auth.OAuth2(
+    client_id,
+    client_secret,
+    redirect_uris[0]
   );
-  return new Promise((resolve, reject) => {
-    res.data
-      .on("end", () => resolve(destPath))
-      .on("error", (err) => reject(err))
-      .pipe(dest);
-  });
+
+  oAuth2Client.setCredentials(tokens);
+
+  return google.drive({ version: "v3", auth: oAuth2Client });
 }
+
+export default getDriveClient;

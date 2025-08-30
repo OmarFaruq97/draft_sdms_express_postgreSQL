@@ -1,5 +1,8 @@
 # Ignore environment file
 .env
 
-# Credential files
+# Ignore Google OAuth files
 credentials.json
+oauth_client.json
+tokens.json
+uploads/   # multer temp folder
