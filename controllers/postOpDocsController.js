@@ -14,6 +14,9 @@ export async function uploadDoc(req, res) {
   } catch (error) {
     console.error("❌ Controller Upload Error:", error);
     res.status(500).json({ success: false, message: error.message });
+    console.log("📌 Params going to procedure:", params);
+    await callProcedure("sdms_db.prc_post_op_docs_crud", params);
+
   }
 }
 
